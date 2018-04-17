@@ -33,9 +33,6 @@
 #include <SoftwareSerial.h>
 #include "Arduino.h"
 
-
-#define RX_PIN 10
-#define TX_PIN 11	
 #define RESET_PIN 2   // pin to the reset pin sim800l
 
 #define LED true // used for indicator led, in case that you don want set to false . 
@@ -47,14 +44,16 @@
 class Sim800l		
 {									
   private:
+    SoftwareSerial *SIM;
+    int _reset;
 	int _timeout;
 	String _buffer;
-		String _readSerial();
+    String _readSerial();
   	
   	
   public:
 
- 	void begin();	
+ 	void begin(int rx, int tx, int reset);
  	void reset(); 
 
  	// Methods for calling || Funciones de llamadas. 

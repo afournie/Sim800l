@@ -32,12 +32,13 @@
 #include "Sim800l.h"
 #include <SoftwareSerial.h>
 
-SoftwareSerial SIM(RX_PIN,TX_PIN);
 //String _buffer;
 
-void Sim800l::begin(){
-	SIM.begin(9600);
-  #if (LED) 
+void Sim800l::begin(int rx, int tx, int reset) {
+    SIM = new SoftwareSerial(rx, tx);
+	SIM->begin(9600);
+    _reset = reset;
+  #if (LED)
     pinMode(OUTPUT,LED_PIN);
   #endif
   _buffer.reserve(255); //reserve memory to prevent intern fragmention
@@ -49,15 +50,15 @@ void Sim800l::begin(){
 //
 String Sim800l::_readSerial(){
   _timeout=0;
-  while  (!SIM.available() && _timeout < 12000  ) 
+  while  (!SIM->available() && _timeout < 12000  )
   {
     delay(13);
     _timeout++;
 
 
   }
-  if (SIM.available()) {
- 	return SIM.readString();
+  if (SIM->available()) {
+ 	return SIM->readString();
   }
   
 
@@ -72,15 +73,15 @@ void Sim800l::reset(){
   #if (LED)
     digitalWrite(LED_PIN,1);
   #endif 
-  digitalWrite(RESET_PIN,1);
+  digitalWrite(_reset,1);
   delay(1000);
-  digitalWrite(RESET_PIN,0);
+  digitalWrite(_reset,0);
   delay(1000);
   // wait for the module response
 
-  SIM.print(F("AT\r\n"));
+  SIM->print(F("AT\r\n"));
   while (_readSerial().indexOf("OK")==-1 ){
-    SIM.print(F("AT\r\n"));
+    SIM->print(F("AT\r\n"));
   }
   
   //wait for sms ready
@@ -99,7 +100,7 @@ void Sim800l::setPhoneFunctionality(){
   4 Disable phone both transmit and receive RF circuits.
   <rst> 1 Reset the MT before setting it to <fun> power level.
   */
-  SIM.print (F("AT+CFUN=1\r\n"));
+  SIM->print (F("AT+CFUN=1\r\n"));
 }
 
 
@@ -117,28 +118,28 @@ void Sim800l::signalQuality(){
 subclause 7.2.4
 99 Not known or not detectable 
 */
-  SIM.print (F("AT+CSQ\r\n"));
+  SIM->print (F("AT+CSQ\r\n"));
   Serial.println(_readSerial());
 }
 
 
 void Sim800l::activateBearerProfile(){
-  SIM.print (F(" AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\" \r\n" ));_buffer=_readSerial();  // set bearer parameter 
-  SIM.print (F(" AT+SAPBR=3,1,\"APN\",\"internet\" \r\n" ));_buffer=_readSerial(); // set apn  
-  SIM.print (F(" AT+SAPBR=1,1 \r\n"));delay(1200);_buffer=_readSerial();// activate bearer context
-  SIM.print (F(" AT+SAPBR=2,1\r\n "));delay(3000);_buffer=_readSerial(); // get context ip address
+  SIM->print (F(" AT+SAPBR=3,1,\"CONTYPE\",\"GPRS\" \r\n" ));_buffer=_readSerial();  // set bearer parameter
+  SIM->print (F(" AT+SAPBR=3,1,\"APN\",\"internet\" \r\n" ));_buffer=_readSerial(); // set apn
+  SIM->print (F(" AT+SAPBR=1,1 \r\n"));delay(1200);_buffer=_readSerial();// activate bearer context
+  SIM->print (F(" AT+SAPBR=2,1\r\n "));delay(3000);_buffer=_readSerial(); // get context ip address
 }
 
 
 void Sim800l::deactivateBearerProfile(){
-  SIM.print (F("AT+SAPBR=0,1\r\n "));
+  SIM->print (F("AT+SAPBR=0,1\r\n "));
   delay(1500);
 }
 
 
 
 bool Sim800l::answerCall(){
-   SIM.print (F("ATA\r\n"));
+   SIM->print (F("ATA\r\n"));
    _buffer=_readSerial();
    //Response in case of data call, if successfully connected 
    if ( (_buffer.indexOf("OK") )!=-1 ) return true;  
@@ -147,9 +148,9 @@ bool Sim800l::answerCall(){
 
 
 void  Sim800l::callNumber(char* number){
-  SIM.print (F("ATD"));
-  SIM.print (number);
-  SIM.print (F("\r\n"));
+  SIM->print (F("ATD"));
+  SIM->print (number);
+  SIM->print (F("\r\n"));
 }
 
 
@@ -164,7 +165,7 @@ uint8_t Sim800l::getCallStatus(){
  4 Call in progress
 
 */
-  SIM.print (F("AT+CPAS\r\n"));
+  SIM->print (F("AT+CPAS\r\n"));
   _buffer=_readSerial();  
   return _buffer.substring(_buffer.indexOf("+CPAS: ")+7,_buffer.indexOf("+CPAS: ")+9).toInt();
 
@@ -173,7 +174,7 @@ uint8_t Sim800l::getCallStatus(){
 
 
 bool Sim800l::hangoffCall(){
-  SIM.print (F("ATH\r\n"));
+  SIM->print (F("ATH\r\n"));
   _buffer=_readSerial();
   if ( (_buffer.indexOf("OK") ) != -1) return true;
   else return false;
@@ -186,17 +187,17 @@ bool Sim800l::hangoffCall(){
 
 bool Sim800l::sendSms(char* number,char* text){
 
-    SIM.print (F("AT+CMGF=1\r")); //set sms to text mode  
+    SIM->print (F("AT+CMGF=1\r")); //set sms to text mode
     _buffer=_readSerial();
-    SIM.print (F("AT+CMGS=\""));  // command to send sms
-    SIM.print (number);           
-    SIM.print(F("\"\r"));       
+    SIM->print (F("AT+CMGS=\""));  // command to send sms
+    SIM->print (number);
+    SIM->print(F("\"\r"));
     _buffer=_readSerial(); 
-    SIM.print (text);
-    SIM.print ("\r"); 
+    SIM->print (text);
+    SIM->print ("\r");
 	//change delay 100 to readserial	
     _buffer=_readSerial();
-    SIM.print((char)26);
+    SIM->print((char)26);
     _buffer=_readSerial();
     //expect CMGS:xxx   , where xxx is a number,for the sending sms.
     if (((_buffer.indexOf("CMGS") ) != -1 ) ){
@@ -224,11 +225,11 @@ String Sim800l::getNumberSms(uint8_t index){
 
 
 String Sim800l::readSms(uint8_t index){
-  SIM.print (F("AT+CMGF=1\r")); 
+  SIM->print (F("AT+CMGF=1\r"));
   if (( _readSerial().indexOf("ER")) ==-1) {
-    SIM.print (F("AT+CMGR="));
-    SIM.print (index);
-    SIM.print("\r");
+    SIM->print (F("AT+CMGR="));
+    SIM->print (index);
+    SIM->print("\r");
     _buffer=_readSerial();
     if (_buffer.indexOf("CMGR:")!=-1){
       return _buffer;
@@ -241,7 +242,7 @@ String Sim800l::readSms(uint8_t index){
 
 
 bool Sim800l::delAllSms(){ 
-  SIM.print(F("at+cmgda=\"del all\"\n\r"));
+  SIM->print(F("at+cmgda=\"del all\"\n\r"));
   _buffer=_readSerial();
   if (_buffer.indexOf("OK")!=-1) {return true;}else {return false;}
   
@@ -249,12 +250,12 @@ bool Sim800l::delAllSms(){
 
 
 void Sim800l::RTCtime(int *day,int *month, int *year,int *hour,int *minute, int *second){
-  SIM.print(F("at+cclk?\r\n"));
+  SIM->print(F("at+cclk?\r\n"));
   // if respond with ERROR try one more time. 
   _buffer=_readSerial();
   if ((_buffer.indexOf("ERR"))!=-1){
     delay(50);
-    SIM.print(F("at+cclk?\r\n"));
+    SIM->print(F("at+cclk?\r\n"));
   } 
   if ((_buffer.indexOf("ERR"))==-1){
     _buffer=_buffer.substring(_buffer.indexOf("\"")+1,_buffer.lastIndexOf("\"")-1);  
@@ -269,7 +270,7 @@ void Sim800l::RTCtime(int *day,int *month, int *year,int *hour,int *minute, int 
 
 //Get the time  of the base of GSM
 String Sim800l::dateNet() {
-  SIM.print(F("AT+CIPGSMLOC=2,1\r\n "));
+  SIM->print(F("AT+CIPGSMLOC=2,1\r\n "));
   _buffer=_readSerial();
 
   if (_buffer.indexOf("OK")!=-1 ){
@@ -315,7 +316,7 @@ bool Sim800l::updateRtc(int utc){
   }
     //for debugging
   //Serial.println("at+cclk=\""+dt.substring(2,4)+"/"+dt.substring(5,7)+"/"+tmp_day+","+tmp_hour+":"+tm.substring(3,5)+":"+tm.substring(6,8)+"-03\"\r\n");
-  SIM.print("at+cclk=\""+dt.substring(2,4)+"/"+dt.substring(5,7)+"/"+tmp_day+","+tmp_hour+":"+tm.substring(3,5)+":"+tm.substring(6,8)+"-03\"\r\n");
+  SIM->print("at+cclk=\""+dt.substring(2,4)+"/"+dt.substring(5,7)+"/"+tmp_day+","+tmp_hour+":"+tm.substring(3,5)+":"+tm.substring(6,8)+"-03\"\r\n");
   if ( (_readSerial().indexOf("ER"))!=-1) {return false;}else return true;
 
    
